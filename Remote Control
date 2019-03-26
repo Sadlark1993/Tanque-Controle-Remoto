@@ -1,0 +1,42 @@
+//Sketch of the remote control
+
+#include <RF24.h>
+
+//pins to RF24
+#define pinCE 9
+#define pinCSN 10
+
+//pins to joystick
+#define urx A0
+#define ury A1
+
+//Data that will be sent/received throught radio
+struct radioDataType{
+  int x = 512;
+  int y = 512;
+};
+radioDataType radioData;
+
+RF24 radio(pinCE, pinCSN);
+
+const uint64_t pipeOut = 0xE8E8F0F0E1LL; //frequency of the radio signal
+
+
+void setup() {
+  Serial.begin(9600);
+  radio.begin();
+  radio.setPALevel(RF24_PA_LOW); //determinates the power of the radio: the more power it has, longer the range, bigger energy consumption.
+  radio.setDataRate(RF24_250KBPS);
+  radio.openWritingPipe(pipeOut);
+}
+
+void loop() {
+  radio.write(&radioData, sizeof(radioDataType));
+  
+  radioData.x = analogRead(urx);
+  radioData.y = analogRead(ury);
+  if(radioData.x > 550){
+    Serial.println("foi");
+  }
+
+}
