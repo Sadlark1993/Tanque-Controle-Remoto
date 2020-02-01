@@ -7,14 +7,23 @@
 #define pinCSN 10
 
 //pins to joystick
-#define urx A0
-#define ury A1
+#define urxL A0
+#define uryL A1
+#define urxR A2
+#define uryR A3
+#define swL 8
+#define swR 2
+
 
 //Data that will be sent/received throught radio
 struct radioDataType{
-  int x = 512;
-  int y = 512;
+  int xL = 512;
+  int yL = 512;
+  int xR = 512;
+  int yR = 512;
+  bool arm = false;
 };
+
 radioDataType radioData;
 
 RF24 radio(pinCE, pinCSN);
@@ -28,15 +37,35 @@ void setup() {
   radio.setPALevel(RF24_PA_LOW); //determinates the power of the radio: the more power it has, longer the range, bigger energy consumption.
   radio.setDataRate(RF24_250KBPS);
   radio.openWritingPipe(pipeOut);
+
+  pinMode(swL, INPUT_PULLUP);
+  pinMode(swR, INPUT_PULLUP);
+  
 }
 
 void loop() {
-  radio.write(&radioData, sizeof(radioDataType));
   
-  radioData.x = analogRead(urx);
-  radioData.y = analogRead(ury);
-  if(radioData.x > 550){
-    Serial.println("foi");
+  radioData.xL = analogRead(urxL);
+  radioData.yL = analogRead(uryL);
+  radioData.xR = analogRead(urxR);
+  radioData.yR = analogRead(uryR);
+
+  Serial.print(digitalRead(swL));
+  Serial.print("\t");
+  Serial.print(digitalRead(swR));
+  Serial.print("\t");
+  
+  if(!digitalRead(swR)){
+    radioData.arm = false;
+  }else if(!digitalRead(swL)){
+    radioData.arm = true;
   }
 
+  radio.write(&radioData, sizeof(radioDataType));
+
+  Serial.println(radioData.arm);
+
+  
+
 }
+
