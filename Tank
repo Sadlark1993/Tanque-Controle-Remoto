@@ -1,13 +1,18 @@
 
 #include <RF24.h>
-
-
+#include <VarSpeedServo.h>
 
 //digital output ports
 #define engAF 2 //Triggers the engine A foward
 #define engAB 4 //Triggers the engine  backward
 #define engBF 8 //...
 #define engBB 7
+
+#define grip A0
+#define turn A1
+#define armR A2
+#define armL A3
+
 
 //analogic output ports that set the power of the engines
 #define powA 3
@@ -19,9 +24,18 @@
 
 //Data that will be sent/received throught radio
 struct radioDataType{
-  int x = 512;
-  int y = 512;
+  int xL = 512;
+  int yL = 512;
+  int xR = 512;
+  int yR = 512;
+  bool arm = false;
 };
+
+VarSpeedServo gripServo;
+VarSpeedServo turnServo;
+VarSpeedServo armRServo;
+VarSpeedServo armLServo;
+
 radioDataType radioData;
 
 RF24 radio(pinCE, pinCSN);
@@ -46,15 +60,69 @@ void setup() {
   pinMode(powA, OUTPUT);
   pinMode(powB, OUTPUT);
 
+  pinMode(grip, OUTPUT);
+  pinMode(turn, OUTPUT);
+  pinMode(armR, OUTPUT);
+  pinMode(armL, OUTPUT);
+
+  gripServo.attach(grip);
+  turnServo.attach(turn);
+  armRServo.attach(armR);
+  armLServo.attach(armL);
+
 }
 
 void loop() {
+  
   if(radio.available()){
     radio.read(&radioData, sizeof(radioDataType));
   }
 
+  if(radioData.arm){
+    
+    Serial.print(radioData.yL);
+    Serial.print("\t");
+    Serial.print(radioData.xL);
+    Serial.print("\t");
+    Serial.print(radioData.yR);
+    Serial.print("\t");
+    Serial.println(radioData.xR);
+    
+    if(radioData.yR > 531){
+      gripServo.write(179, map(radioData.yR, 532, 1023, 2, 30), false);
+    }else if(radioData.yR < 491){
+      gripServo.write(0, map(radioData.yR, 490, 0, 2, 30), false);
+    }else{
+      gripServo.stop();
+    }
+
+    if(radioData.xR > 531){
+      armRServo.write(0, map(radioData.xR, 532, 1023, 2, 30), false);
+    }else if(radioData.xR < 491){
+      armRServo.write(179, map(radioData.xR, 490, 0, 2, 30), false);
+    }else{
+      armRServo.stop();
+    }
+
+    if(radioData.yL > 531){
+      turnServo.write(179, map(radioData.yL, 532, 1023, 2, 30), false);
+    }else if(radioData.yL < 491){
+      turnServo.write(0, map(radioData.yL, 490, 0, 2, 30), false);
+    }else{
+      turnServo.stop();
+    }
+
+    if(radioData.xL > 531){
+      armLServo.write(0, map(radioData.xL, 532, 1023, 2, 30), false);
+    }else if(radioData.xL < 491){
+      armLServo.write(179, map(radioData.xL, 490, 0, 2, 30), false); 
+    }else{
+      armLServo.stop();
+    }
+  }else{
+
   //speed control:
-  if((radioData.x > 500) && (radioData.x < 530) && (radioData.y > 500) && (radioData.y < 530)){
+  if((radioData.xR > 490) && (radioData.xR < 532) && (radioData.yR > 490) && (radioData.yR < 532)){
     digitalWrite(engAF, LOW);
     digitalWrite(engAB, LOW);
     digitalWrite(engBF, LOW);
@@ -62,47 +130,48 @@ void loop() {
     digitalWrite(powA, LOW);
     digitalWrite(powB, LOW);
     Serial.println("eng OFF");
-  }else if(radioData.x < 501){
+  }else if(radioData.xR < 491){
     digitalWrite(engAF, LOW);
     digitalWrite(engAB, HIGH);
     digitalWrite(engBF, LOW);
     digitalWrite(engBB, HIGH);
     
-    analogWrite(powA, (255 - map(radioData.x, 0, 500, 0, 255)));
-    analogWrite(powB, (255 - map(radioData.x, 0, 500, 0, 255)));
+    analogWrite(powA, (255 - map(radioData.xR, 0, 490, 0, 255)));
+    analogWrite(powB, (255 - map(radioData.xR, 0, 500, 0, 255)));
     Serial.print("x backward: ");
-    Serial.println(500 - radioData.x);
-  }else if(radioData.x > 529){
+    Serial.println(490 - radioData.xR);
+  }else if(radioData.xR > 531){
     digitalWrite(engAF, HIGH);
     digitalWrite(engAB, LOW);
     digitalWrite(engBF, HIGH);
     digitalWrite(engBB, LOW);
     
-    analogWrite(powA, map(radioData.x, 530, 1023, 0, 255));
-    analogWrite(powB, map(radioData.x, 530, 1023, 0, 255));
+    analogWrite(powA, map(radioData.xR, 532, 1023, 0, 255));
+    analogWrite(powB, map(radioData.xR, 532, 1023, 0, 255));
     Serial.print("x foward: ");
-    Serial.println(radioData.x - 530);
+    Serial.println(radioData.xR - 532);
     
-  }else  if(radioData.y < 501){
-    digitalWrite(engAF, HIGH);
-    digitalWrite(engAB, LOW);
-    digitalWrite(engBF, LOW);
-    digitalWrite(engBB, HIGH);
-    
-    analogWrite(powA, (255 - map(radioData.y, 0, 500, 0, 255)));
-    analogWrite(powB, (255 - map(radioData.y, 0, 500, 0, 255)));
-    Serial.print("y left: ");
-    Serial.println(500 - radioData.y);
-  }else if(radioData.y > 529){
+  }else  if(radioData.yR < 491){
     digitalWrite(engAF, LOW);
     digitalWrite(engAB, HIGH);
     digitalWrite(engBF, HIGH);
     digitalWrite(engBB, LOW);
     
-    analogWrite(powA, map(radioData.y, 530, 1023, 0, 255));
-    analogWrite(powB, map(radioData.y, 530, 1023, 0, 255));
+    analogWrite(powA, (255 - map(radioData.yR, 0, 490, 0, 255)));
+    analogWrite(powB, (255 - map(radioData.yR, 0, 490, 0, 255)));
+    Serial.print("y left: ");
+    Serial.println(490 - radioData.yR);
+  }else if(radioData.yR > 531){
+    digitalWrite(engAF, HIGH);
+    digitalWrite(engAB, LOW);
+    digitalWrite(engBF, LOW);
+    digitalWrite(engBB, HIGH);
+    
+    analogWrite(powA, map(radioData.yR, 532, 1023, 0, 255));
+    analogWrite(powB, map(radioData.yR, 532, 1023, 0, 255));
     Serial.print("y right: ");
-    Serial.println(radioData.y - 530);
+    Serial.println(radioData.yR - 532);
   }
-
+  }
+  
 }
